@@ -12,4 +12,5 @@ type Storage interface {
 	ListPosts(ctx context.Context, limit int, cursor *string) (*models.PaginatedPosts, error)
 	CreateComment(ctx context.Context, comment *models.Comment) error
 	GetComments(ctx context.Context, postID string, parentID *string, limit int, cursor *string) (*models.PaginatedComments, error)
+	Close() error
 }

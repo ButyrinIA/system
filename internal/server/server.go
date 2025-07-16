@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -34,7 +35,7 @@ func (s *Server) Run() error {
 	})
 	srv := handler.NewDefaultServer(executableSchema)
 
-	// Configure WebSocket transport
+	// Конфигурация WebSocket-транспорта
 	srv.AddTransport(&transport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
@@ -44,28 +45,29 @@ func (s *Server) Run() error {
 		KeepAlivePingInterval: 10 * time.Second,
 	})
 
-	// Authentication middleware
+	// Middleware для аутентификации
 	srv.AroundOperations(func(ctx context.Context, next graphql.OperationHandler) graphql.ResponseHandler {
 		oc := graphql.GetOperationContext(ctx)
-		if oc == nil {
-			return next(ctx)
-		}
-
 		authHeader := oc.Headers.Get("Authorization")
 		if authHeader != "" {
 			if !strings.HasPrefix(authHeader, "Bearer ") {
-				oc.Error(ctx, gqlerror.Errorf("Invalid authorization header format"))
-				return next(ctx) // Продолжаем выполнение, ошибка уже добавлена
+				log.Printf("Неверный формат заголовка авторизации: %s", authHeader)
+				oc.Error(ctx, gqlerror.Errorf("Неверный формат заголовка авторизации"))
+				return next(ctx)
 			}
 
 			token := strings.TrimPrefix(authHeader, "Bearer ")
 			userID, err := validateJWT(token)
 			if err != nil {
-				oc.Error(ctx, gqlerror.Errorf("Invalid token: %v", err))
+				log.Printf("Недействительный токен: %v", err)
+				oc.Error(ctx, gqlerror.Errorf("Недействительный токен: %v", err))
 				return next(ctx)
 			}
 
+			log.Printf("Успешная аутентификация пользователя: %s", userID)
 			ctx = context.WithValue(ctx, "userID", userID)
+		} else {
+			log.Println("Заголовок авторизации отсутствует")
 		}
 
 		return next(ctx)
@@ -74,12 +76,14 @@ func (s *Server) Run() error {
 	http.Handle("/", playground.Handler("GraphQL Playground", "/query"))
 	http.Handle("/query", srv)
 
+	log.Printf("Сервер запущен на порту :%s", s.cfg.Server.Port)
 	return http.ListenAndServe(":"+s.cfg.Server.Port, nil)
 }
 
 func validateJWT(token string) (string, error) {
 	if token == "" {
-		return "", errors.New("empty token")
+		return "", errors.New("пустой токен")
 	}
-	return "user1", nil
+	// Заменить на реальную проверку JWT github.com/golang-jwt/jwt/v5
+	return "user1", nil // Заглушка
 }
