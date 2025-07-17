@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.memory
+    ports:
+      - "8080:8080"
+    environment:
+      - STORAGE_TYPE=memory
+    volumes:
+      - ./config.yaml:/app/config.yaml
