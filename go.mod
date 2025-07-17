@@ -4,8 +4,10 @@ go 1.23.10
 
 require (
 	github.com/99designs/gqlgen v0.17.76
+	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/graph-gophers/dataloader/v7 v7.1.0
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/vektah/gqlparser/v2 v2.5.30
 	gopkg.in/yaml.v3 v3.0.1

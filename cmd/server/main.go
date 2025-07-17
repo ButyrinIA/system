@@ -24,18 +24,21 @@ func main() {
 	var store storage.Storage
 	switch *storageType {
 	case "postgres":
+		log.Println("Инициализация хранилища PostgreSQL")
 		store, err = postgres.New(cfg.Postgres.DSN)
 		if err != nil {
 			log.Fatalf("Не удалось инициализировать PostgreSQL: %v", err)
 		}
-		defer store.Close()
 	case "memory":
+		log.Println("Инициализация хранилища Memory")
 		store = memory.New()
 	default:
 		log.Fatalf("Неизвестный тип хранилища: %s", *storageType)
 	}
+	defer store.Close()
 
 	srv := server.New(cfg, store)
+	log.Println("Запуск сервера")
 	if err := srv.Run(); err != nil {
 		log.Fatalf("Не удалось запустить сервер: %v", err)
 	}

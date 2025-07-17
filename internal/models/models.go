@@ -27,7 +27,7 @@ type PaginatedComments struct {
 }
 
 type PaginatedPosts struct {
-	Posts      []Post  `json:"posts"`
+	Posts      []*Post `json:"posts"`
 	TotalCount int     `json:"totalCount"`
 	NextCursor *string `json:"nextCursor"`
 }
