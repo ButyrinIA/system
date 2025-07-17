@@ -14,6 +14,16 @@ import (
 	"github.com/graph-gophers/dataloader/v7"
 )
 
+// PostResolver определяет резолверы для полей типа Post
+type PostResolver interface {
+	Comments(ctx context.Context, obj *Post, limit int, cursor *string) (*PaginatedComments, error)
+}
+
+// CommentResolver определяет резолверы для полей типа Comment
+type CommentResolver interface {
+	Replies(ctx context.Context, obj *Comment, limit int, cursor *string) (*PaginatedComments, error)
+}
+
 // Resolver - основная структура, реализующая ResolverRoot
 type Resolver struct {
 	Storage             storage.Storage
@@ -28,6 +38,16 @@ type queryResolver struct {
 
 // mutationResolver реализует MutationResolver
 type mutationResolver struct {
+	*Resolver
+}
+
+// postResolver реализует PostResolver
+type postResolver struct {
+	*Resolver
+}
+
+// commentResolver реализует CommentResolver
+type commentResolver struct {
 	*Resolver
 }
 
@@ -57,6 +77,18 @@ func (r *Resolver) Query() QueryResolver {
 func (r *Resolver) Mutation() MutationResolver {
 	log.Println("Инициализация MutationResolver")
 	return &mutationResolver{r}
+}
+
+// Post возвращает PostResolver
+func (r *Resolver) Post() PostResolver {
+	log.Println("Инициализация PostResolver")
+	return &postResolver{r}
+}
+
+// Comment возвращает CommentResolver
+func (r *Resolver) Comment() CommentResolver {
+	log.Println("Инициализация CommentResolver")
+	return &commentResolver{r}
 }
 
 // Subscription возвращает SubscriptionResolver
@@ -121,20 +153,20 @@ func (r *queryResolver) Post(ctx context.Context, id string) (*Post, error) {
 	}, nil
 }
 
-// Post_comments реализует поле comments в Post с использованием DataLoader
-func (r *queryResolver) Post_comments(ctx context.Context, obj *Post, limit int, cursor *string) (*PaginatedComments, error) {
+// Comments реализует поле comments в Post с использованием DataLoader
+func (r *postResolver) Comments(ctx context.Context, obj *Post, limit int, cursor *string) (*PaginatedComments, error) {
 	log.Printf("Запрос комментариев для postID=%s, limit=%d, cursor=%v", obj.ID, limit, cursor)
 	commentLoader, ok := ctx.Value("commentLoader").(*dataloader.Loader[string, *models.PaginatedComments])
 	if !ok {
 		log.Println("Ошибка: CommentLoader не найден в контексте")
-		return &PaginatedComments{Comments: []*Comment{}, TotalCount: 0, NextCursor: nil}, nil
+		return nil, fmt.Errorf("commentLoader not found in context")
 	}
 
 	thunk := commentLoader.Load(ctx, obj.ID)
 	result, err := thunk()
 	if err != nil {
 		log.Printf("Ошибка при загрузке комментариев для postID=%s через DataLoader: %v", obj.ID, err)
-		return &PaginatedComments{Comments: []*Comment{}, TotalCount: 0, NextCursor: nil}, nil
+		return nil, fmt.Errorf("failed to load comments: %v", err)
 	}
 
 	log.Printf("Получено комментариев для postID=%s: %d, TotalCount: %d, NextCursor: %v", obj.ID, len(result.Comments), result.TotalCount, result.NextCursor)
@@ -157,13 +189,13 @@ func (r *queryResolver) Post_comments(ctx context.Context, obj *Post, limit int,
 	return paginatedComments, nil
 }
 
-// Comment_replies реализует поле replies в Comment
-func (r *queryResolver) Comment_replies(ctx context.Context, obj *Comment, limit int, cursor *string) (*PaginatedComments, error) {
+// Replies реализует поле replies в Comment
+func (r *commentResolver) Replies(ctx context.Context, obj *Comment, limit int, cursor *string) (*PaginatedComments, error) {
 	log.Printf("Запрос ответов для commentID=%s, postID=%s, limit=%d, cursor=%v", obj.ID, obj.PostID, limit, cursor)
 	comments, err := r.Storage.GetComments(ctx, obj.PostID, &obj.ID, limit, cursor)
 	if err != nil {
 		log.Printf("Ошибка при получении ответов для commentID=%s: %v", obj.ID, err)
-		return &PaginatedComments{Comments: []*Comment{}, TotalCount: 0, NextCursor: nil}, nil
+		return nil, fmt.Errorf("failed to load comment replies: %v", err)
 	}
 	log.Printf("Получено ответов для commentID=%s: %d, TotalCount: %d, NextCursor: %v", obj.ID, len(comments.Comments), comments.TotalCount, comments.NextCursor)
 
